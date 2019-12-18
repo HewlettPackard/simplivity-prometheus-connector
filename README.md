@@ -60,8 +60,9 @@ The Prometheus configuration file contains entries for every single process or s
 
 The target is defined as __\<connector *container name*>:\<port>__; i.e. in the above example, the connector container for the primary Simplivity environment has the name simplivity and provides the collected metrics on port 9091.  The Prometheus job for the secondary SimpliVity federation looked similar with a different target.  Each Prometheus scrape job is defined by the job name, scrape interval and timeout, the metrics path and the targets. The above example is defining that the metrics of the SimpliVity system should be collected every 20s from the address http://simplivity:9091/metrics and the collection times out if it takes longer than 10s. It is possible to define multiple targets per job but we decided to define multiple job entries in order to be more flexible in the settings.
 
-#### Persistent Storage
-Prometheus stores the metrics in its timeseries database. In order to have the data persistent across container reboots or container moves it is necessary to store the database on persistent storage. There are multiple options available to provide persistent storage to a container; one can use HPE 3PAR or HPE Nimble storage arrays together with the corresponding docker volume plugin or one can use a NFS fileserver to provide persistent storage to a docker container. 
+### Persistent Storage
+Prometheus stores the metrics in its timeseries database. In order to have the data persistent across container reboots or container moves it is necessary to store the database on persistent storage. There are multiple options available to provide persistent storage to a container; one can use HPE 3PAR or HPE Nimble storage arrays together with the corresponding docker volume plugin or one can use a NFS fileserver to provide persistent storage to a docker container.
+ 
 We used an NFS fileshare (10.0.44.44:/docker/prometheus) provided by the file server as persistent storage in order to be independent of the SimpliVity environment. A persistent docker volume named prom-data, based on the lab fileserver at IP address 10.0.44.44, was defined with the following command:
 
 > docker volume create --driver local –o type=nfs –o device:/docker/prometheus –o o=addr=10.0.44.44 prom-data
