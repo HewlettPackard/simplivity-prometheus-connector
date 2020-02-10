@@ -36,12 +36,18 @@ Two files (*__filename.xml__* and *__filename.key__*) are the output of the Crea
 The Prometheus configuration file contains entries for every single process or service that should be monitored. In our case, we do have a separate entry for each SimpliVity federation that should be monitored. The entry for the SimpliVity environment looks like:
 
 > job_name: simpliVity
+>
 > honor_timestamps: true
+>
 > scrape_interval: 20s
+> 
 > scrape_timeout: 10s
+>
 > metrics_path: /metrics
+>
 > static_configs:
->  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- targets: ['simplivity:9091']
+>
+> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- targets: ['simplivity:9091']
 
 The target is defined as __\<connector *container name*>:\<port>__; i.e. in the above example, the connector container for the primary Simplivity environment has the name simplivity and provides the collected metrics on port 9091.  The Prometheus job for the secondary SimpliVity federation looked similar with a different target.  Each Prometheus scrape job is defined by the job name, scrape interval and timeout, the metrics path and the targets. The above example is defining that the metrics of the SimpliVity system should be collected every 20s from the address http://simplivity:9091/metrics and the collection times out if it takes longer than 10s. It is possible to define multiple targets per job but we decided to define multiple job entries in order to be more flexible in the settings.
 
