@@ -29,18 +29,11 @@ scrape_configs:
   scrape_timeout: 10s
   metrics_path: /metrics
   static_configs:
-      - targets: ['simplivity:9091']
+      - targets: ['localhost:9091']
 - job_name: grafana
   honor_timestamps: true
   scrape_interval: 15s
   scrape_timeout: 10s
   metrics_path: /metrics
   static_configs:
-      - targets: ['grafana:3000']
-- job_name: infrastructure
-  honor_timestamps: true
-  scrape_interval: 20s
-  scrape_timeout: 10s
-  metrics_path: /metrics
-  static_configs:
-      - targets: ['svtinfrastructure:9091']
+      - targets: ['localhost:3000']

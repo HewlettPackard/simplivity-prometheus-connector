@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Created on August 31, 2019
-Version 1.0
+Created on December 16, 2019
+Version 2.3
 
 Copyright (c) 2019 Hewlett Packard Enterprise
 
@@ -27,8 +27,7 @@ from prometheus_client import Counter, Gauge, start_http_server
 
 BtoGB = pow(1024, 3)
 BtoMB = pow(1024, 2)
-path = './'
-# path = '/opt/svt/'
+path = '/opt/svt/'
 
 
 node_state = {
@@ -165,9 +164,8 @@ def getNodeCapacity(data):
         return ndata
 
 
-# ******** Main ********
+# Main ###########################################################################
 if __name__ == "__main__":
-
     t0 = time.time()
     """ read the key and input file """
     keyfile = path + 'SvtConnector.key'
@@ -233,8 +231,8 @@ if __name__ == "__main__":
             sdatastore.labels('Federation', 'Datastore_count').set(len(datastores))
             """  Cluster metrics: """
             for x in clusters:
-                perf = getPerformanceAverage(svt.GetClusterMetric(
-                        x['name'], timerange=mrange, resolution=mresolution)['metrics'])
+                perf = getPerformanceAverage(svt.GetClusterMetric(x['name'], timerange=mrange,
+                                                                  resolution=mresolution)['metrics'])
                 cn = (x['name'].split('.')[0]).replace('-', '_')
                 for metricname in capacitymetric:
                     scluster.labels(cn, metricname).set(x[metricname]/BtoGB)
@@ -249,9 +247,10 @@ if __name__ == "__main__":
 
             """  Node metrics: """
             for x in hosts:
-                y = getNodeCapacity(svt.GetHostCapacity(x['name'], timerange=mrange, resolution=mresolution)['metrics'])
-                perf = getPerformanceAverage(svt.GetHostMetrics(
-                        x['name'], timerange=mrange, resolution=mresolution)['metrics'])
+                y = getNodeCapacity(svt.GetHostCapacity(x['name'], timerange=mrange,
+                                                        resolution=mresolution)['metrics'])
+                perf = getPerformanceAverage(svt.GetHostMetrics(x['name'], timerange=mrange,
+                                             resolution=mresolution)['metrics'])
                 cn = (x['name'].split('.')[0]).replace('-', '_')
                 snode.labels(cn, 'State').set(node_state[x['state']])
                 for metricname in capacitymetric:
@@ -265,10 +264,11 @@ if __name__ == "__main__":
             for x in vms:
                 cn = (x['name'].split('.')[0]).replace('-', '_')
                 svm.labels(cn, 'state').set(vm_state[x['state']])
-                perf = getPerformanceAverage(svt.GetVMMetric(
-                        x['name'], timerange=mrange, resolution=mresolution)['metrics'])
+                """
+                perf=getPerformanceAverage(svt.GetVMMetric(x['name'],timerange=mrange,resolution=mresolution)['metrics'])
                 for metricname in performancemetric:
-                    svm.labels(cn, metricname).set(perf[metricname])
+                    svm.labels(cn,metricname).set(perf[metricname])
+                """
 
             """ DataStore metrics """
             for x in datastores:
