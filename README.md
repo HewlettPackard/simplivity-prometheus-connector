@@ -49,7 +49,7 @@ The target is defined as __\<connector *container name*>:\<port>__; i.e. in the 
 Once the container images and the persistent volume are prepared, the docker container can be started:
 1.	Start the SimpliVity connector container for the SimpliVity federation
 > docker build -f svtconnect.ubuntu.Dockerfile -t svtconnect:1.0 .\
-> sudo docker run --name simplivity -d -p 9091:9091 --network=svtmonitor svtconnect:1.0
+> docker run --name simplivity -d -p 9091:9091 --network=svtmonitor svtconnect:1.0
 2.	Start the Prometheus container
 > docker build -f Prometheus.Dockerfile -t prometheus:1.0 .\
 > docker run --name prometheus -d -p 9090:9090 --network=svtmonitor prometheus:1.0
@@ -57,8 +57,11 @@ Once the container images and the persistent volume are prepared, the docker con
 > docker run -d -p 3000:3000 --network=svtmonitor --restart unless-stopped --name grafana grafana/grafana
 
 ---
+
 **Note**
+
 _The name of the container should be the same as the target name in prometheus file so as to have a proper connection between containers_
+
 ---
 
 We did start all container with the restart unless-stopped flag, to make sure, even if for some reason the container is stopped, that it is restarted. The collected data is now available on the server, where the container are running, at the following web addresses:
