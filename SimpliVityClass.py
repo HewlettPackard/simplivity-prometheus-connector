@@ -160,12 +160,21 @@ class SimpliVity:
 
     """ VM Operations #######################################################################"""
 
-    def GetVM(self, vmname=None):
+    def GetVM(self, vmname=None, listOffset=None, listLimit=None):
+        url = self.url+'virtual_machines?show_optional_fields=true'
         if vmname:
-            url = self.url+'virtual_machines?show_optional_fields=true&name='+vmname
-        else:
-            url = self.url+'virtual_machines?show_optional_field=true'
-        return self.doGet(url)
+            url = url+'&name='+vmname
+        if listOffset:
+            url = url+'&offset='+listOffset
+        if listLimit:
+            url = url+'&limit='+listLimit
+        json_response = self.doGet(url)
+        count = json_response['count']
+        last = json_response['offset'] + json_response['limit']
+        if last <= count :
+            new_response = self.GetVM(listOffset=str(last))
+            json_response['virtual_machines'] += new_response['virtual_machines']
+        return json_response
 
     def GetVMId(self, vmname):
         x = self.GetVM(vmname)['virtual_machines']
@@ -269,14 +278,20 @@ class SimpliVity:
         if past_hours:
             createdAfter = (datetime.datetime.now() - datetime.timedelta(hours=past_hours)
                             ).isoformat(timespec='seconds')+'Z'
-            url = url + '&created_after='+createdAfter
+            url = url+'&created_after='+createdAfter
         if vmname:
-            url = url + '&virtual_machine_name='+vmname
+            url = url+'&virtual_machine_name='+vmname
         if listOffset:
-            url = url + '&offset='+listOffset
+            url = url+'&offset='+listOffset
         if listLimit:
-            url = url + '&limit='+listLimit
-        return self.doGet(url)
+            url = url+'&limit='+listLimit
+        json_response = self.doGet(url)
+        count = json_response['count']
+        last = json_response['offset'] + json_response['limit']
+        if last <= count :
+            new_response = self.GetBackups(listOffset=str(last))
+            json_response['backups'] += new_response['backups']
+        return json_response
 
     def GetVMLastBackup(self, vmname):
         bck = self.GetBackups(vmname=vmname)['backups']

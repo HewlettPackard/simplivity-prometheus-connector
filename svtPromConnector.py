@@ -73,6 +73,22 @@ performancemetric = [
     'write_latency'
 ]
 
+vmmetrics = [
+    'allocated_capacity',
+    'free_space',
+    'consumed_cpu',
+    'allocated_cpu',
+    'cpu_count',
+    'virtual_disk_count',
+    'consumed_memory',
+    'total_memory'
+]
+
+backupmetrics = [
+    'size',
+    'unique_size_bytes'
+]
+
 
 def logwriter(f, text):
         output = str(datetime.today()) + ": "+text+" \n"
@@ -208,6 +224,7 @@ if __name__ == "__main__":
     scluster = Gauge('simplivity_cluster', 'SimpliVity Cluster Data', ['clustername', 'clustermetric'])
     snode = Gauge('simplivity_node', 'SimpliVity Node Data', ['nodename', 'nodemetric'])
     svm = Gauge('simplivity_vm', 'SimpliVity VM Data', ['vmname', 'vmmetric'])
+    sbackup = Gauge('simplivity_backup', 'SimpliVity Backup Data', ['bkpname', 'bkpmetric'])
     sdatastore = Gauge('simplivity_datastore', 'SimpliVity Datastore Data - Sizes in GB', ['dsname', 'dsmetric'])
     delta = Gauge('ConnectorRuntime', 'Time required for last data collection in seconds')
 
@@ -225,10 +242,12 @@ if __name__ == "__main__":
             hosts = svt.GetHost()['hosts']
             vms = svt.GetVM()['virtual_machines']
             datastores = svt.GetDataStore()['datastores']
+            backups = svt.GetBackups()['backups']
             scluster.labels('Federation', 'Cluster_count').set(len(clusters))
             snode.labels('Federation', 'Node_count').set(len(hosts))
             svm.labels('Federation', 'VM_count').set(len(vms))
             sdatastore.labels('Federation', 'Datastore_count').set(len(datastores))
+            sbackup.labels('Federation', 'Backup_count').set(len(backups))
             """  Cluster metrics: """
             for x in clusters:
                 perf = getPerformanceAverage(svt.GetClusterMetric(x['name'], timerange=mrange,
@@ -264,16 +283,23 @@ if __name__ == "__main__":
             for x in vms:
                 cn = (x['name'].split('.')[0]).replace('-', '_')
                 svm.labels(cn, 'state').set(vm_state[x['state']])
-                """
-                perf=getPerformanceAverage(svt.GetVMMetric(x['name'],timerange=mrange,resolution=mresolution)['metrics'])
+                perf = getPerformanceAverage(svt.GetVMMetric(
+                        x['name'], timerange=mrange, resolution=mresolution)['metrics'])
+                for metricname in vmmetrics:
+                    svm.labels(cn, metricname).set(x['hypervisor_'+metricname])
                 for metricname in performancemetric:
-                    svm.labels(cn,metricname).set(perf[metricname])
-                """
+                    svm.labels(cn, metricname).set(perf[metricname])
 
             """ DataStore metrics """
             for x in datastores:
                 cn = (x['name']).replace('-', '_')
                 sdatastore.labels(cn, 'size').set(x['size']/BtoGB)
+
+            for x in backups:
+                cn = (x['name']).replace('-', '_')
+                for metricname in backupmetrics:
+                    sbackup.labels(cn, metricname).set(x[metricname]/BtoGB)
+
 
             t1 = time.time()
             delta.set((t1-t0))
