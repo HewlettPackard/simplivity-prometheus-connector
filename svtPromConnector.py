@@ -21,13 +21,15 @@ Copyright (c) 2019 Hewlett Packard Enterprise
 from cryptography.fernet import *
 from lxml import etree
 import time
-from SimpliVityClass import *
 from datetime import datetime
 from prometheus_client import Counter, Gauge, start_http_server
+from simplivity.ovc_client import OVC
+from simplivity.exceptions import HPESimpliVityException
 
 BtoGB = pow(1024, 3)
 BtoMB = pow(1024, 2)
-path = '/opt/svt/'
+# path = '/opt/svt/'
+path = './'
 
 
 node_state = {
@@ -173,9 +175,7 @@ if __name__ == "__main__":
 
     """ Parse XML File """
     tree = etree.parse(xmlfile)
-    u2 = (tree.find("user")).text
-    p2 = (tree.find("password")).text
-    ovc = (tree.find("ovc")).text
+    
     mintervall = int((tree.find("monitoringintervall")).text)
     mresolution = (tree.find("resolution")).text
     mrange = (tree.find("timerange")).text
@@ -194,12 +194,16 @@ if __name__ == "__main__":
 
     """ Create the SimpliVity Rest API Object"""
     logwriter(log, "Open a connection to the SimpliVity systems")
-    svtuser = f.decrypt(u2.encode('ASCII')).decode('ASCII')
-    svtpassword = f.decrypt(p2.encode('ASCII')).decode('ASCII')
-    url = "https://"+ovc+"/api/"
-    svt = SimpliVity(url)
+    config = {
+        "ip": (tree.find("ovc")).text,
+        "credentials": {
+            "username": f.decrypt(((tree.find('user')).text).encode('ASCII')).decode('ASCII'),
+            "password": f.decrypt(((tree.find('password')).text).encode('ASCII')).decode('ASCII')
+        }
+    }
+
     logwriter(log, "Open Connection to SimpliVity")
-    svt.Connect(svtuser, svtpassword)
+    svt = OVC(config)
     logwriter(log, "Connection to SimpliVity is open")
     logclose(log)
 
@@ -221,38 +225,37 @@ if __name__ == "__main__":
         try:
             t0 = time.time()
             c.inc()
-            clusters = svt.GetCluster()['omnistack_clusters']
-            hosts = svt.GetHost()['hosts']
-            vms = svt.GetVM()['virtual_machines']
-            datastores = svt.GetDataStore()['datastores']
+            clusters = svt.omnistack_clusters.get_all(show_optional_fields=True)
+            hosts = svt.hosts.get_all(show_optional_fields=True)
+            vms = svt.virtual_machines.get_all(show_optional_fields=True)
+            datastores = svt.datastores.get_all(show_optional_fields=True)
             scluster.labels('Federation', 'Cluster_count').set(len(clusters))
             snode.labels('Federation', 'Node_count').set(len(hosts))
             svm.labels('Federation', 'VM_count').set(len(vms))
             sdatastore.labels('Federation', 'Datastore_count').set(len(datastores))
             """  Cluster metrics: """
-            for x in clusters:
-                perf = getPerformanceAverage(svt.GetClusterMetric(x['name'], timerange=mrange,
-                                                                  resolution=mresolution)['metrics'])
-                cn = (x['name'].split('.')[0]).replace('-', '_')
+            for cluster in clusters:
+                cluster_data = cluster.data
+                perf = getPerformanceAverage(cluster.get_metrics(range=mrange, resolution=mresolution)['metrics'])
+                cn = (cluster_data['name'].split('.')[0]).replace('-', '_')
                 for metricname in capacitymetric:
-                    scluster.labels(cn, metricname).set(x[metricname]/BtoGB)
+                    scluster.labels(cn, metricname).set(cluster_data[metricname]/BtoGB)
                 for metricname in dedupmetric:
-                    scluster.labels(cn, metricname).set(x[metricname].split()[0])
+                    scluster.labels(cn, metricname).set(cluster_data[metricname].split()[0])
                 for metricname in performancemetric:
                     scluster.labels(cn, metricname).set(perf[metricname])
-                for x in svt.GetClusterThroughput():
-                    cn = x['source_omnistack_cluster_name']
-                    metricname = x['destination_omnistack_cluster_name']+' throughput'
-                    scluster.labels(cn, metricname).set(x['throughput'])
+                # for x in cluster.GetClusterThroughput():
+                #     cn = x['source_omnistack_cluster_name']
+                #     metricname = x['destination_omnistack_cluster_name'] + ' throughput'
+                #     scluster.labels(cn, metricname).s1et(c['throughput'])
 
             """  Node metrics: """
-            for x in hosts:
-                y = getNodeCapacity(svt.GetHostCapacity(x['name'], timerange=mrange,
-                                                        resolution=mresolution)['metrics'])
-                perf = getPerformanceAverage(svt.GetHostMetrics(x['name'], timerange=mrange,
-                                             resolution=mresolution)['metrics'])
-                cn = (x['name'].split('.')[0]).replace('-', '_')
-                snode.labels(cn, 'State').set(node_state[x['state']])
+            for host in hosts:
+                host_data = host.data
+                y = getNodeCapacity(host.get_capacity()['metrics'])
+                perf = getPerformanceAverage(host.get_metrics(range=mrange, resolution=mresolution)['metrics'])
+                cn = (host_data['name'].split('.')[0]).replace('-', '_')
+                snode.labels(cn, 'State').set(node_state[host_data['state']])
                 for metricname in capacitymetric:
                     snode.labels(cn, metricname).set(y[metricname])
                 for metricname in dedupmetric:
@@ -261,9 +264,10 @@ if __name__ == "__main__":
                     snode.labels(cn, metricname).set(perf[metricname])
 
             """  VM metrics: """
-            for x in vms:
-                cn = (x['name'].split('.')[0]).replace('-', '_')
-                svm.labels(cn, 'state').set(vm_state[x['state']])
+            for vm in vms:
+                vm_data = vm.data
+                cn = (vm_data['name'].split('.')[0]).replace('-', '_')
+                svm.labels(cn, 'state').set(vm_state[vm_data['state']])
                 """
                 perf=getPerformanceAverage(svt.GetVMMetric(x['name'],timerange=mrange,resolution=mresolution)['metrics'])
                 for metricname in performancemetric:
@@ -271,9 +275,10 @@ if __name__ == "__main__":
                 """
 
             """ DataStore metrics """
-            for x in datastores:
-                cn = (x['name']).replace('-', '_')
-                sdatastore.labels(cn, 'size').set(x['size']/BtoGB)
+            for datastore in datastores:
+                datastore_data = datastore.data
+                cn = (datastore_data['name']).replace('-', '_')
+                sdatastore.labels(cn, 'size').set(datastore_data['size']/BtoGB)
 
             t1 = time.time()
             delta.set((t1-t0))
@@ -287,36 +292,12 @@ if __name__ == "__main__":
             logwriter(log, str(e.status))
             logwriter(log, str(e.message))
             logclose(log)
-        except SvtError as e:
-            if e.status == 401:
-                try:
-                    log = logopen(path+lfile)
-                    logwriter(log, "Open Connection to SimpliVity")
-                    svt.Connect(svtuser, svtpassword)
-                    logwriter(log, "Connection to SimpliVity is open")
-                    logclose(log)
-                except SvtError as e:
-                    log = logopen(path+lfile)
-                    logwriter(log, "Failed to open a conection to SimplVity")
-                    logwriter(log, str(e.expression))
-                    logwriter(log, str(e.status))
-                    logwriter(log, str(e.message))
-                    logwriter(log, "close SimpliVity connection")
-                    logclose(log)
-                    exit(-200)
-            elif e.status == 555:
-                log = logopen(path+lfile)
-                logwriter(log, 'SvtError:')
-                logwriter(log, str(e.expression))
-                logwriter(log, str(e.status))
-                logwriter(log, str(e.message))
-                logclose(log)
-            else:
-                log = logopen(path+lfile)
-                logwriter(log, 'Unhandeled SvtError:')
-                logwriter(log, str(e.expression))
-                logwriter(log, str(e.status))
-                logwriter(log, str(e.message))
-                logwriter(log, "close SimpliVity connection")
-                logclose(log)
-                exit(-200)
+        except HPESimpliVityException as e:
+            log = logopen(path+lfile)
+            logwriter(log, 'SimpliVity Error:')
+            logwriter(log, str(e.msg))
+            if (hasattr(e, response)):
+                logwriter(log, str(e.response))
+            logwriter(log, "close SimpliVity connection")
+            logclose(log)
+            exit(-200)

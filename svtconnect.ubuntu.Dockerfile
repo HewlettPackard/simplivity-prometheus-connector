@@ -16,11 +16,11 @@ RUN apt-get -y install python3.6 && \
 	apt-get -y install vim && \
 	apt-get -y install cron 
 # Install the necessary Python packages:
-RUN /usr/bin/pip3 install requests && \
-	/usr/bin/pip3 install fernet && \
+RUN /usr/bin/pip3 install fernet && \
 	/usr/bin/pip3 install cryptography && \
 	/usr/bin/pip3 install lxml && \
-	/usr/bin/pip3 install prometheus_client
+	/usr/bin/pip3 install prometheus_client && \
+	/usr/bin/pip3 install simplivity
 # copy the necessary python files to the container
 RUN mkdir /opt/svt
 COPY SimpliVityClass.py /opt/svt
